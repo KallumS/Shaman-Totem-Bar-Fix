@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: Shaman Totem Bar Fix
+## Notes: Shows the Call of the Elements / Ancestors / Spirits totem bar while the GamePad UI is enabled.
+## Author: KallumS
+## Version: 1.0.0
+## SavedVariablesPerCharacter: ShamanTotemBarFixDB
+
+ShamanTotemBarFix.lua
