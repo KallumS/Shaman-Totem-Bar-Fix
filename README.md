@@ -36,4 +36,18 @@ By default the bar shows only while the GamePad UI is on. With the GamePad UI of
 | `/stbf scale 1.2` | Resize the bar (0.5 to 2) |
 | `/stbf reset` | Return to the default position and scale |
 | `/stbf set 1-3`, `/stbf next` | Switch to Elements, Ancestors or Spirits (works in a macro on a gamepad bar) |
+| `/stbf paddles` | Choose two controller buttons for GamePad UI previous/next page |
+| `/stbf paddles show` / `/stbf paddles clear` | List or remove those buttons |
 | `/stbf debug` | Print the totem slots, for bug reports |
+
+## GamePad UI page buttons (back paddles)
+
+By default the GamePad UI changes action-bar page with L1+R1 plus the D-pad. To put previous/next page on two spare buttons, such as the L4/R4 back paddles:
+
+1. With the GamePad UI on and out of combat, type `/stbf paddles`.
+2. Press the button you want for **previous page** (e.g. L4).
+3. Press the button you want for **next page** (e.g. R4).
+
+The add-on prints the name WoW gives each button. If nothing happens when you press a paddle, WoW isn't receiving that button from your controller. Press Escape to cancel; you can then map the paddle to a different input in your controller software and run setup again.
+
+These buttons press Blizzard's own hidden page-change button (the one L1+R1+D-pad uses), so they also work in combat. "Previous" moves forward two pages, which comes back round to the previous one with 3 pages. While a possess bar adds a 4th page, it moves forward two instead of back one. The L1+R1+D-pad shortcut keeps working too.

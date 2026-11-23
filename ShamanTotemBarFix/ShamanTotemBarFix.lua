@@ -563,6 +563,106 @@ UpdateAll = function()
 end
 
 ---------------------------------------------------------------------------
+-- GamePad UI page switching from any button (e.g. back paddles)
+---------------------------------------------------------------------------
+-- The GamePad UI has a hidden Blizzard button, CycleActionBarPageButton, that
+-- moves its action bars to the next page (the same thing L1+R1+D-pad does).
+-- We bind keys to it with priority override bindings - the mechanism the
+-- GamePad UI itself uses - so paging runs Blizzard's own code and works in
+-- combat. "Previous page" is two steps forward, because there are 3 pages.
+local PAGE_BUTTON = "CycleActionBarPageButton"
+local bindOwner, prevPageButton, capture
+local pendingBindings = false
+
+local function ApplyPageBindings()
+	if InCombatLockdown() then
+		pendingBindings = true
+		return
+	end
+	pendingBindings = false
+	ClearOverrideBindings(bindOwner)
+	if db.nextKey then
+		SetOverrideBindingClick(bindOwner, true, db.nextKey, PAGE_BUTTON, "LeftButton")
+	end
+	if db.prevKey then
+		SetOverrideBindingClick(bindOwner, true, db.prevKey, prevPageButton:GetName(), "LeftButton")
+	end
+end
+
+local function StopCapture(msg)
+	if msg then Print(msg) end
+	capture:Hide()
+end
+
+local function OnCapturePress(self, key)
+	if not key or key == "ESCAPE" then
+		StopCapture("button setup cancelled - nothing changed.")
+		return
+	end
+	if self.step == "prev" then
+		self.prevKey = key
+		self.step = "next"
+		Print(("previous page = |cffffd100%s|r. Now press the button for NEXT page (e.g. R4)."):format(key))
+		return
+	end
+	if key == self.prevKey then
+		Print("that's the same button - press a different one for NEXT page.")
+		return
+	end
+	db.prevKey, db.nextKey = self.prevKey, key
+	StopCapture(("next page = |cffffd100%s|r. Done - previous: %s, next: %s."):format(key, db.prevKey, db.nextKey))
+	ApplyPageBindings()
+end
+
+local function StartCapture()
+	if InCombatLockdown() then Print("not in combat.") return end
+	if capture:IsShown() then StopCapture("button setup cancelled - nothing changed.") return end
+	if not _G[PAGE_BUTTON] then
+		Print("the GamePad UI's page button wasn't found - turn the GamePad UI on, then try again.")
+		return
+	end
+	capture.step, capture.prevKey = "prev", nil
+	capture:Show()
+	Print("press the controller button for PREVIOUS page (e.g. L4). Escape or /stbf paddles again cancels.")
+end
+
+local function CreatePageButtons()
+	bindOwner = CreateFrame("Frame", "ShamanTotemBarFixBindings")
+
+	prevPageButton = CreateFrame("Button", "ShamanTotemBarFixPagePrev", UIParent, "SecureActionButtonTemplate")
+	prevPageButton:RegisterForClicks("AnyDown")
+	prevPageButton:SetAttribute("useOnKeyDown", true)
+	prevPageButton:SetAttribute("type", "macro")
+	local click = "/click " .. PAGE_BUTTON .. " LeftButton 1"
+	prevPageButton:SetAttribute("macrotext", click .. "\n" .. click)
+
+	-- Temporarily captures the next keyboard key or gamepad button pressed.
+	capture = CreateFrame("Frame", nil, UIParent)
+	capture:SetFrameStrata("FULLSCREEN_DIALOG")
+	capture:SetAllPoints()
+	capture:EnableKeyboard(true)
+	if capture.EnableGamePadButton then capture:EnableGamePadButton(true) end
+	capture:SetScript("OnKeyDown", OnCapturePress)
+	capture:SetScript("OnGamePadButtonDown", OnCapturePress)
+	capture:Hide()
+
+	ApplyPageBindings()
+end
+
+local function PaddleCommand(arg)
+	if arg == "clear" then
+		if InCombatLockdown() then Print("not in combat.") return end
+		db.prevKey, db.nextKey = nil, nil
+		ApplyPageBindings()
+		Print("page buttons cleared.")
+	elseif arg == "show" then
+		Print(("page buttons - previous: %s, next: %s"):format(db.prevKey or "none", db.nextKey or "none"))
+	else
+		StartCapture()
+	end
+end
+
+---------------------------------------------------------------------------
 -- Slash commands
 ---------------------------------------------------------------------------
 local function Help()
@@ -572,6 +672,8 @@ local function Help()
 	Print("  unlock / lock - move the bar   |   reset - default position and scale")
 	Print("  scale <0.5-2> - resize the bar")
 	Print("  set <1-3> - pick Elements / Ancestors / Spirits   |   next - cycle them")
+	Print("  paddles - set two controller buttons for GamePad UI previous/next page")
+	Print("  paddles show / paddles clear - list or remove them")
 	Print("  debug - print the totem action slots")
 end
 
@@ -611,6 +713,9 @@ local function Slash(msg)
 		end
 		db.page = page
 		Print("editing " .. (SpellName(SUMMON_SPELLS[page]) or ("set " .. page)) .. ".")
+	elseif cmd == "paddles" or cmd == "paddle" then
+		PaddleCommand(arg)
+		return
 	elseif cmd == "debug" then
 		local barIndex = C_ActionBar and C_ActionBar.GetMultiCastBarIndex and C_ActionBar.GetMultiCastBarIndex()
 		Print(("GetMultiCastBarIndex=%s, gamepadUI=%s, mode=%s, page=%d"):format(
@@ -659,6 +764,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 		end
 		CreateFrames()
 		ApplyPosition()
+		CreatePageButtons()
 
 		for _, e in ipairs({
 			"PLAYER_ENTERING_WORLD", "SPELLS_CHANGED", "UPDATE_MULTI_CAST_ACTIONBAR",
@@ -678,6 +784,7 @@ events:SetScript("OnEvent", function(self, event, ...)
 		HideFlyout()
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		if pendingUpdate then UpdateAll() end
+		if pendingBindings then ApplyPageBindings() end
 	else
 		UpdateAll()
 	end
